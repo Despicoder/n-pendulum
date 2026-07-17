@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The N-Pendulum — Chaos Apparatus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f1a;
+    --bg-alt:#0e1526;
+    --panel:#121a2c;
+    --panel-2:#0f1626;
+    --line:rgba(201,154,74,0.16);
+    --line-strong:rgba(201,154,74,0.32);
+    --brass:#c99a4a;
+    --brass-bright:#f2d98c;
+    --cyan:#5fd8d6;
+    --violet:#a58ed6;
+    --warn:#dd8158;
+    --text:#e9e6dc;
+    --text-dim:#8b93a8;
+    --text-dimmer:#5c6478;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(201,154,74,0.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:rgba(201,154,74,0.35);}
+  a{color:var(--brass-bright);}
+
+  /* ---------- Focus visibility ---------- */
+  button:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--cyan);
+    outline-offset:2px;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    max-width:1180px;
+    margin:0 auto;
+    padding:40px 24px 20px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--brass);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    display:inline-block;
+    width:7px;height:7px;border-radius:50%;
+    background:var(--brass);
+    box-shadow:0 0 8px 1px var(--brass);
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(32px, 5vw, 52px);
+    line-height:1.05;
+    margin:14px 0 10px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{
+    font-style:italic;
+    font-weight:500;
+    color:var(--brass-bright);
+  }
+  .subhead{
+    color:var(--text-dim);
+    font-size:16px;
+    max-width:640px;
+    line-height:1.55;
+  }
+
+  /* ---------- Layout ---------- */
+  .layout{
+    max-width:1180px;
+    margin:0 auto;
+    padding:10px 24px 60px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:22px;
+  }
+
+  /* ---------- Stage ---------- */
+  .stage-frame{
+    position:relative;
+    background:
+      linear-gradient(180deg, var(--bg-alt), #0a0e18);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 30px 60px -30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .stage{
+    position:relative;
+    width:100%;
+    height:min(62vh, 560px);
+    min-height:360px;
+  }
+  .stage canvas{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  #stageCanvas{ z-index:3; }
+  #trailCanvas{ z-index:2; }
+
+  .mount{
+    position:absolute;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:120px; height:14px;
+    z-index:4;
+    pointer-events:none;
+  }
+
+  .plaque{
+    position:absolute;
+    z-index:5;
+    background:rgba(10,14,24,0.72);
+    backdrop-filter:blur(6px);
+    border:1px solid var(--line-strong);
+    border-radius:8px;
+    padding:10px 12px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    line-height:1.7;
+    color:var(--text-dim);
+    pointer-events:none;
+  }
+  .plaque b{ color:var(--brass-bright); font-weight:600; }
+  .plaque .row{ display:flex; justify-content:space-between; gap:16px; white-space:nowrap; }
+  .plaque .num{ color:var(--text); }
+
+  #readoutPlaque{ top:14px; left:14px; min-width:172px; }
+
+  #instrumentsPlaque{
+    top:14px; right:14px;
+    padding:10px;
+    display:flex;
+    gap:10px;
+  }
+  .scope{
+    background:#060a12;
+    border:1px solid rgba(95,216,214,0.18);
+    border-radius:6px;
+    position:relative;
+    overflow:hidden;
+  }
+  .scope canvas{ display:block; }
+  .scope-label{
+    position:absolute; bottom:2px; left:5px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8.5px;
+    letter-spacing:0.06em;
+    color:var(--text-dimmer);
+    text-transform:uppercase;
+    pointer-events:none;
+  }
+
+  .hint{
+    position:absolute;
+    bottom:12px; left:14px;
+    z-index:5;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--text-dimmer);
+    pointer-events:none;
+    transition:opacity 0.3s ease;
+  }
+
+  .transport{
+    position:absolute;
+    bottom:12px; right:14px;
+    z-index:5;
+    display:flex;
+    gap:8px;
+  }
+  .icon-btn{
+    background:rgba(18,26,44,0.85);
+    border:1px solid var(--line-strong);
+    color:var(--text);
+    width:38px;height:38px;
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+  .icon-btn:hover{ background:rgba(201,154,74,0.16); border-color:var(--brass); }
+  .icon-btn:active{ transform:scale(0.94); }
+  .icon-btn svg{ width:16px; height:16px; }
+  #playPauseBtn{ width:auto; padding:0 16px; gap:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; }
+
+  /* ---------- Control panel ---------- */
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:6px 26px 26px;
+  }
+  .panel-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:0;
+  }
+  .group{
+    padding:22px 20px;
+    border-left:1px solid var(--line);
+  }
+  .group:first-child{ border-left:none; padding-left:0; }
+  .group-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:16px;
+  }
+  .field{ margin-bottom:16px; }
+  .field:last-child{ margin-bottom:0; }
+  .field-label{
+    display:flex; justify-content:space-between;
+    font-size:12.5px; color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .field-label .val{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--brass-bright);
+    font-size:12px;
+  }
+
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:3px;
+    background:var(--line-strong);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:var(--brass-bright);
+    box-shadow:0 0 0 3px rgba(201,154,74,0.18), 0 0 8px rgba(242,217,140,0.5);
+    cursor:pointer;
+    margin-top:-5.5px;
+    transition:box-shadow 0.15s ease;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{ box-shadow:0 0 0 5px rgba(201,154,74,0.24), 0 0 10px rgba(242,217,140,0.7); }
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border:none;border-radius:50%;
+    background:var(--brass-bright);
+    box-shadow:0 0 0 3px rgba(201,154,74,0.18);
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-track{
+    height:3px;background:var(--line-strong);border-radius:2px;
+  }
+
+  select{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+
+  .note{
+    margin-top:10px;
+    font-size:11.5px;
+    line-height:1.55;
+    color:var(--text-dimmer);
+    border-left:2px solid var(--line-strong);
+    padding-left:10px;
+  }
+  .note.warn{ color:var(--warn); border-left-color:var(--warn); }
+  .note .dim{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--text-dimmer); display:block; margin-top:4px;}
+
+  .preset-row{
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-bottom:14px;
+  }
+  .chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:6px 10px;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    color:var(--text-dim);
+    border-radius:20px;
+    cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  .chip:hover{ border-color:var(--brass); color:var(--brass-bright); }
+  .chip.active{ background:rgba(201,154,74,0.16); border-color:var(--brass); color:var(--brass-bright); }
+
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .toggle-row .field-label{ margin-bottom:0; }
+  .switch{
+    position:relative; width:38px; height:21px;
+    background:var(--panel-2); border:1px solid var(--line-strong);
+    border-radius:20px; cursor:pointer; flex:none;
+  }
+  .switch::after{
+    content:"";
+    position:absolute; top:2px; left:2px;
+    width:15px; height:15px; border-radius:50%;
+    background:var(--text-dimmer);
+    transition:left 0.15s ease, background 0.15s ease;
+  }
+  .switch.on{ border-color:var(--brass); }
+  .switch.on::after{ left:18px; background:var(--brass-bright); box-shadow:0 0 6px rgba(242,217,140,0.7); }
+
+  /* ---------- Equation card ---------- */
+  .eq-section{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:26px 30px;
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+    gap:28px;
+  }
+  .eq-section h2{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 12px;
+  }
+  .eq-section p{
+    color:var(--text-dim);
+    font-size:13.5px;
+    line-height:1.7;
+    margin:0 0 10px;
+  }
+  .eq-card{
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:10px;
+    padding:22px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+  }
+  .eq-card .eq{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:14px;
+    color:var(--brass-bright);
+    line-height:2.1;
+  }
+  .facts{
+    list-style:none; margin:14px 0 0; padding:0;
+    display:grid; grid-template-columns:1fr 1fr; gap:10px 20px;
+  }
+  .facts li{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    display:flex; justify-content:space-between;
+    border-bottom:1px dotted var(--line);
+    padding-bottom:6px;
+  }
+  .facts li b{ color:var(--brass-bright); font-weight:600; }
+
+  footer{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 24px 50px;
+    color:var(--text-dimmer);
+    font-size:12px;
+    line-height:1.7;
+  }
+
+  @media (max-width:980px){
+    .panel-grid{ grid-template-columns:1fr 1fr; }
+    .group:nth-child(3){ border-left:none; }
+    .group:nth-child(1),.group:nth-child(2),.group:nth-child(3),.group:nth-child(4){ border-top:1px solid var(--line); }
+    .group:nth-child(1),.group:nth-child(2){ border-top:none; }
+    .eq-section{ grid-template-columns:1fr; }
+  }
+  @media (max-width:620px){
+    .panel-grid{ grid-template-columns:1fr; }
+    .group{ border-left:none !important; border-top:1px solid var(--line); padding-left:0 !important; }
+    .group:first-child{ border-top:none; }
+    #instrumentsPlaque{ display:none; }
+    .facts{ grid-template-columns:1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .icon-btn, .chip, .switch, .switch::after{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="eyebrow">n-link chain · lagrangian mechanics · live rk4 integration</div>
+  <h1>The <em>N</em>-Pendulum</h1>
+  <p class="subhead">A double pendulum is famous for chaos. This is what happens when you keep bolting on more links. Set the chain length, pose it by hand, and watch order fall apart.</p>
+</div>
+
+<div class="layout">
+
+  <div class="stage-frame">
+    <div class="stage" id="stageWrap">
+      <canvas id="trailCanvas"></canvas>
+      <canvas id="stageCanvas"></canvas>
+
+      <div class="plaque" id="readoutPlaque">
+        <div class="row"><span>kinetic</span><span class="num" id="keReadout">0.00 J</span></div>
+        <div class="row"><span>potential</span><span class="num" id="peReadout">0.00 J</span></div>
+        <div class="row"><span>total E</span><span class="num" id="eReadout">0.00 J</span></div>
+        <div class="row"><span>drift</span><span class="num" id="driftReadout">0.00%</span></div>
+        <div class="row" id="divRow" style="display:none;"><span>divergence</span><span class="num" id="divReadout">0.000</span></div>
+      </div>
+
+      <div class="plaque" id="instrumentsPlaque">
+        <div class="scope">
+          <canvas id="phaseCanvas" width="130" height="110"></canvas>
+          <div class="scope-label">phase · θ₁ vs ω₁</div>
+        </div>
+        <div class="scope">
+          <canvas id="energyCanvas" width="130" height="110"></canvas>
+          <div class="scope-label">energy history</div>
+        </div>
+      </div>
+
+      <div class="hint" id="dragHint"></div>
+
+      <div class="transport">
+        <button class="icon-btn" id="resetBtn" title="Reset to initial pose" aria-label="Reset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 21v-6h6"/></svg>
+        </button>
+        <button class="icon-btn" id="stepBtn" title="Advance one step" aria-label="Step forward">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4z"/><path d="M19 5v14"/></svg>
+        </button>
+        <button class="icon-btn" id="playPauseBtn" title="Play / Pause" aria-label="Play or pause">
+          <svg viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M6 4l14 8-14 8V4z"/></svg>
+          <span id="playLabel">Play</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-grid">
+
+      <div class="group">
+        <div class="group-title">Structure</div>
+        <div class="field">
+          <div class="field-label"><span>Links (n)</span><span class="val" id="nValue">3</span></div>
+          <input type="range" id="nSlider" min="1" max="40" step="1" value="3">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Length pattern</span></div>
+          <select id="lenPattern">
+            <option value="uniform">Uniform</option>
+            <option value="taperIn">Shorter toward tip</option>
+            <option value="taperOut">Longer toward tip</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Base length</span><span class="val" id="baseLenValue">0.9 m</span></div>
+          <input type="range" id="baseLen" min="0.4" max="1.8" step="0.05" value="0.9">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Mass pattern</span></div>
+          <select id="massPattern">
+            <option value="uniform">Uniform</option>
+            <option value="heavyTip">Heavier toward tip</option>
+            <option value="lightTip">Lighter toward tip</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <div class="field-label"><span>Base mass</span><span class="val" id="baseMassValue">1.0 kg</span></div>
+          <input type="range" id="baseMass" min="0.2" max="3" step="0.1" value="1.0">
+        </div>
+        <div class="note" id="nNote"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Environment</div>
+        <div class="field">
+          <div class="field-label"><span>Gravity</span></div>
+          <select id="gravityPreset">
+            <option value="9.81">Earth (9.81 m/s²)</option>
+            <option value="1.62">Moon (1.62 m/s²)</option>
+            <option value="24.79">Jupiter (24.79 m/s²)</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>g</span><span class="val" id="gravityValue">9.81 m/s²</span></div>
+          <input type="range" id="gravitySlider" min="0.5" max="26" step="0.05" value="9.81">
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Joint friction</span><span class="val" id="dampingValue">0.00</span></div>
+          <input type="range" id="dampingSlider" min="0" max="0.8" step="0.01" value="0">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <div class="field-label"><span>Simulation speed</span><span class="val" id="speedValue">1.0×</span></div>
+          <input type="range" id="speedSlider" min="0.25" max="3" step="0.05" value="1">
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Initial pose</div>
+        <div class="preset-row">
+          <div class="chip" data-preset="hang">Hang</div>
+          <div class="chip" data-preset="fan">Fan</div>
+          <div class="chip" data-preset="half">Half-up</div>
+          <div class="chip" data-preset="inverted">Near-inverted</div>
+          <div class="chip" data-preset="random">Randomize</div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Base angle</span><span class="val" id="baseAngleValue">0°</span></div>
+          <input type="range" id="baseAngleSlider" min="-180" max="180" step="1" value="0">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <div class="field-label"><span>Fan spread</span><span class="val" id="spreadValue">0°</span></div>
+          <input type="range" id="spreadSlider" min="0" max="180" step="1" value="0">
+        </div>
+        <div class="note">Drag any bob on the stage (while paused) to pose the chain by hand — links downstream follow rigidly.</div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Observe</div>
+        <div class="toggle-row">
+          <div class="field-label"><span>Motion trail</span></div>
+          <div class="switch on" id="trailToggle"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="field-label"><span>Chaos twin</span></div>
+          <div class="switch on" id="ghostToggle"></div>
+        </div>
+        <div class="note">The chaos twin starts 0.001° away from the real chain — same equations, same gravity, one hair's-width of difference in the first angle. Watch how long it takes to matter.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="eq-section">
+    <div>
+      <h2>What's actually being solved</h2>
+      <p>Each bob's motion depends on the position and velocity of every other bob in the chain — a moving tip yanks on the whole rope. The equations below come straight out of the Lagrangian for n point masses on massless rigid links, one per bob, solved simultaneously at every frame.</p>
+      <p>M<sub>k</sub> is the combined mass of bob k and everything hanging past it. There's no small-angle approximation anywhere — this is the full nonlinear system, integrated with 4th-order Runge–Kutta.</p>
+      <ul class="facts" id="factsList">
+        <li><span>Links</span><b id="factN">3</b></li>
+        <li><span>Phase-space dim.</span><b id="factDim">6</b></li>
+        <li><span>Coupled DOF</span><b id="factDof">3</b></li>
+        <li><span>Integrator</span><b>RK4</b></li>
+      </ul>
+    </div>
+    <div class="eq-card">
+      <div class="eq">
+        Σⱼ lᵢlⱼ M₍max(i,j)₎ [ θⱼ″cos(θᵢ−θⱼ) + θⱼ′²sin(θᵢ−θⱼ) ]<br>
+        &nbsp;&nbsp;&nbsp;+ g lᵢ Mᵢ sin(θᵢ) = 0 &nbsp;&nbsp;&nbsp;for i = 1…n
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Built for exploration, not prediction — past roughly 15 links, the same sensitivity that makes this interesting also means floating-point rounding is enough to send the simulation and "reality" down different paths within seconds. That's not a bug in the code; it's the content of the theorem. 40 links is the hard ceiling, mostly out of mercy for your CPU.
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONSTANTS & STATE
+   ============================================================ */
+const MAX_N = 40;
+let n = 3;
+
+const theta = new Float64Array(MAX_N);
+const omega = new Float64Array(MAX_N);
+const thetaG = new Float64Array(MAX_N); // ghost / chaos twin
+const omegaG = new Float64Array(MAX_N);
+
+const L = new Float64Array(MAX_N);
+const Mm = new Float64Array(MAX_N);
+const Msuf = new Float64Array(MAX_N);
+
+// RK4 scratch (reused to avoid per-frame allocation)
+const k1t = new Float64Array(MAX_N), k1o = new Float64Array(MAX_N);
+const k2t = new Float64Array(MAX_N), k2o = new Float64Array(MAX_N);
+const k3t = new Float64Array(MAX_N), k3o = new Float64Array(MAX_N);
+const k4t = new Float64Array(MAX_N), k4o = new Float64Array(MAX_N);
+const tmpTheta = new Float64Array(MAX_N), tmpOmega = new Float64Array(MAX_N);
+
+// linear solve scratch (flat n x n, stride MAX_N)
+const Amat = new Float64Array(MAX_N * MAX_N);
+const bvec = new Float64Array(MAX_N);
+
+// position buffers (canvas-space convention: down = +y)
+const px = new Float64Array(MAX_N), py = new Float64Array(MAX_N);
+const pxG = new Float64Array(MAX_N), pyG = new Float64Array(MAX_N);
+
+let G = 9.81;
+let DAMPING = 0;
+let SPEED = 1;
+let lenPattern = "uniform";
+let massPattern = "uniform";
+let baseLen = 0.9;
+let baseMass = 1.0;
+let baseAngleDeg = 0;
+let spreadDeg = 0;
+
+let showTrail = true;
+let showGhost = true;
+let isPlaying = false;
+
+let scale = 100; // px per meter, recomputed on rebuild/resize
+let totalLength = 1;
+
+const GHOST_EPS = 0.001 * Math.PI / 180; // 0.001 degree perturbation
+
+/* ============================================================
+   PHYSICS
+   ============================================================ */
+
+// Fills Msuf[0..n) with suffix mass sums: Msuf[i] = sum_{k=i}^{n-1} Mm[k]
+function computeSuffixMasses(){
+  let running = 0;
+  for (let i = n - 1; i >= 0; i--){
+    running += Mm[i];
+    Msuf[i] = running;
+  }
+}
+
+// Solves Amat * x = bvec for the first n unknowns, writes into out[0..n)
+function solveLinear(out){
+  for (let col = 0; col < n; col++){
+    let maxRow = col;
+    let maxVal = Math.abs(Amat[col * MAX_N + col]);
+    for (let r = col + 1; r < n; r++){
+      const v = Math.abs(Amat[r * MAX_N + col]);
+      if (v > maxVal){ maxVal = v; maxRow = r; }
+    }
+    if (maxRow !== col){
+      for (let c = 0; c < n; c++){
+        const tmp = Amat[col * MAX_N + c];
+        Amat[col * MAX_N + c] = Amat[maxRow * MAX_N + c];
+        Amat[maxRow * MAX_N + c] = tmp;
+      }
+      const tb = bvec[col]; bvec[col] = bvec[maxRow]; bvec[maxRow] = tb;
+    }
+    const pivot = Amat[col * MAX_N + col] || 1e-12;
+    for (let r = col + 1; r < n; r++){
+      const factor = Amat[r * MAX_N + col] / pivot;
+      if (factor === 0) continue;
+      for (let c = col; c < n; c++){
+        Amat[r * MAX_N + c] -= factor * Amat[col * MAX_N + c];
+      }
+      bvec[r] -= factor * bvec[col];
+    }
+  }
+  for (let r = n - 1; r >= 0; r--){
+    let sum = bvec[r];
+    for (let c = r + 1; c < n; c++) sum -= Amat[r * MAX_N + c] * out[c];
+    out[r] = sum / (Amat[r * MAX_N + r] || 1e-12);
+  }
+}
+
+// Builds the linear system for angular accelerations and solves it into `out`.
+function computeAlpha(th, om, out){
+  computeSuffixMasses();
+  for (let i = 0; i < n; i++){
+    let bi = -G * L[i] * Msuf[i] * Math.sin(th[i]) - DAMPING * om[i];
+    for (let j = 0; j < n; j++){
+      const Mij = Msuf[i > j ? i : j];
+      const coeff = L[i] * L[j] * Mij;
+      Amat[i * MAX_N + j] = coeff * Math.cos(th[i] - th[j]);
+      if (j !== i) bi -= coeff * Math.sin(th[i] - th[j]) * om[j] * om[j];
+    }
+    bvec[i] = bi;
+  }
+  solveLinear(out);
+}
+
+// One RK4 step of size h, operating in place on the given theta/omega arrays.
+function rk4Step(thArr, omArr, h){
+  computeAlpha(thArr, omArr, k1o);
+  for (let i = 0; i < n; i++) k1t[i] = omArr[i];
+
+  for (let i = 0; i < n; i++){
+    tmpTheta[i] = thArr[i] + 0.5 * h * k1t[i];
+    tmpOmega[i] = omArr[i] + 0.5 * h * k1o[i];
+  }
+  computeAlpha(tmpTheta, tmpOmega, k2o);
+  for (let i = 0; i < n; i++) k2t[i] = tmpOmega[i];
+
+  for (let i = 0; i < n; i++){
+    tmpTheta[i] = thArr[i] + 0.5 * h * k2t[i];
+    tmpOmega[i] = omArr[i] + 0.5 * h * k2o[i];
+  }
+  computeAlpha(tmpTheta, tmpOmega, k3o);
+  for (let i = 0; i < n; i++) k3t[i] = tmpOmega[i];
+
+  for (let i = 0; i < n; i++){
+    tmpTheta[i] = thArr[i] + h * k3t[i];
+    tmpOmega[i] = omArr[i] + h * k3o[i];
+  }
+  computeAlpha(tmpTheta, tmpOmega, k4o);
+  for (let i = 0; i < n; i++) k4t[i] = tmpOmega[i];
+
+  for (let i = 0; i < n; i++){
+    thArr[i] += h / 6 * (k1t[i] + 2 * k2t[i] + 2 * k3t[i] + k4t[i]);
+    omArr[i] += h / 6 * (k1o[i] + 2 * k2o[i] + 2 * k3o[i] + k4o[i]);
+  }
+}
+
+// Cumulative bob positions in meters, canvas convention (down = +y), written into xArr/yArr.
+function computePositionsMeters(th, xArr, yArr){
+  let x = 0, y = 0;
+  for (let i = 0; i < n; i++){
+    x += L[i] * Math.sin(th[i]);
+    y += L[i] * Math.cos(th[i]);
+    xArr[i] = x; yArr[i] = y;
+  }
+}
+
+function computeEnergy(th, om){
+  computeSuffixMasses();
+  let vx = 0, vy = 0, y = 0;
+  let KE = 0, PE = 0;
+  for (let i = 0; i < n; i++){
+    vx += L[i] * Math.cos(th[i]) * om[i];
+    vy += -L[i] * Math.sin(th[i]) * om[i];
+    y  += L[i] * Math.cos(th[i]);
+    KE += 0.5 * Mm[i] * (vx * vx + vy * vy);
+    PE += -Mm[i] * G * y;
+  }
+  return { KE, PE, E: KE + PE };
+}
+
+/* ============================================================
+   SETUP / PARAMETERS
+   ============================================================ */
+
+function computeLengths(){
+  for (let i = 0; i < n; i++){
+    const t = n > 1 ? i / (n - 1) : 0;
+    if (lenPattern === "taperIn") L[i] = baseLen * (1.4 - 0.8 * t);
+    else if (lenPattern === "taperOut") L[i] = baseLen * (0.6 + 0.8 * t);
+    else L[i] = baseLen;
+  }
+  totalLength = 0;
+  for (let i = 0; i < n; i++) totalLength += L[i];
+}
+
+function computeMasses(){
+  for (let i = 0; i < n; i++){
+    const t = n > 1 ? i / (n - 1) : 0;
+    if (massPattern === "heavyTip") Mm[i] = baseMass * (0.5 + 1.5 * t);
+    else if (massPattern === "lightTip") Mm[i] = baseMass * (2.0 - 1.5 * t);
+    else Mm[i] = baseMass;
+  }
+}
+
+function initialAngles(idx){
+  // base angle + progressive spread across the chain, in radians
+  const t = n > 1 ? idx / (n - 1) : 0;
+  return (baseAngleDeg + spreadDeg * t) * Math.PI / 180;
+}
+
+function applyInitialPose(){
+  for (let i = 0; i < n; i++){
+    theta[i] = initialAngles(i);
+    omega[i] = 0;
+  }
+  theta[0] += 0; // real system starts exactly at the requested pose
+  for (let i = 0; i < n; i++){ thetaG[i] = theta[i]; omegaG[i] = 0; }
+  thetaG[0] += GHOST_EPS; // chaos twin: one hair off
+  clearTrails();
+  energyHistory.length = 0;
+  baselineEnergy = computeEnergy(theta, omega).E;
+}
+
+function rebuildSystem(){
+  computeLengths();
+  computeMasses();
+  applyInitialPose();
+  updateNoteAndFacts();
+  resizeStage(); // recompute scale for new total length
+}
+
+/* ============================================================
+   PRESETS
+   ============================================================ */
+function setPreset(name){
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.preset === name));
+  if (name === "hang"){ baseAngleDeg = 0; spreadDeg = 0; }
+  else if (name === "fan"){ baseAngleDeg = 20; spreadDeg = 110; }
+  else if (name === "half"){ baseAngleDeg = 90; spreadDeg = 0; }
+  else if (name === "inverted"){ baseAngleDeg = 175; spreadDeg = 0; }
+  else if (name === "random"){
+    baseAngleDeg = Math.round((Math.random() * 340) - 170);
+    spreadDeg = Math.round(Math.random() * 180);
+  }
+  baseAngleSlider.value = baseAngleDeg;
+  spreadSlider.value = spreadDeg;
+  baseAngleValue.textContent = baseAngleDeg + "\u00B0";
+  spreadValue.textContent = spreadDeg + "\u00B0";
+  applyInitialPose();
+  isPlaying = false;
+  updatePlayButton();
+}
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const nSlider = document.getElementById("nSlider");
+const nValue = document.getElementById("nValue");
+const nNote = document.getElementById("nNote");
+const lenPatternSel = document.getElementById("lenPattern");
+const baseLenSlider = document.getElementById("baseLen");
+const baseLenValue = document.getElementById("baseLenValue");
+const massPatternSel = document.getElementById("massPattern");
+const baseMassSlider = document.getElementById("baseMass");
+const baseMassValue = document.getElementById("baseMassValue");
+
+const gravityPreset = document.getElementById("gravityPreset");
+const gravitySlider = document.getElementById("gravitySlider");
+const gravityValue = document.getElementById("gravityValue");
+const dampingSlider = document.getElementById("dampingSlider");
+const dampingValue = document.getElementById("dampingValue");
+const speedSlider = document.getElementById("speedSlider");
+const speedValue = document.getElementById("speedValue");
+
+const baseAngleSlider = document.getElementById("baseAngleSlider");
+const baseAngleValue = document.getElementById("baseAngleValue");
+const spreadSlider = document.getElementById("spreadSlider");
+const spreadValue = document.getElementById("spreadValue");
+
+const trailToggle = document.getElementById("trailToggle");
+const ghostToggle = document.getElementById("ghostToggle");
+const divRow = document.getElementById("divRow");
+
+const playPauseBtn = document.getElementById("playPauseBtn");
+const playLabel = document.getElementById("playLabel");
+const playIcon = document.getElementById("playIcon");
+const resetBtn = document.getElementById("resetBtn");
+const stepBtn = document.getElementById("stepBtn");
+const dragHint = document.getElementById("dragHint");
+
+const keReadout = document.getElementById("keReadout");
+const peReadout = document.getElementById("peReadout");
+const eReadout = document.getElementById("eReadout");
+const driftReadout = document.getElementById("driftReadout");
+const divReadout = document.getElementById("divReadout");
+
+const factN = document.getElementById("factN");
+const factDim = document.getElementById("factDim");
+const factDof = document.getElementById("factDof");
+
+/* ---------- n note text ---------- */
+function updateNoteAndFacts(){
+  factN.textContent = n;
+  factDim.textContent = 2 * n;
+  factDof.textContent = n;
+  nValue.textContent = n;
+
+  let html = "";
+  if (n === 1){
+    html = "A single pendulum: for small swings this is simple harmonic motion, period T \u2248 2\u03c0\u221a(L/g). Push it further from vertical and it's still perfectly periodic \u2014 just not sinusoidal.";
+  } else if (n === 2){
+    html = "The classic double pendulum \u2014 the simplest chain that is provably chaotic. Small changes in starting angle grow exponentially.";
+  } else if (n <= 8){
+    html = "Chaotic and rich, and still numerically trustworthy for a good while.";
+  } else if (n <= 15){
+    html = "The chain starts behaving like a whip \u2014 a nudge at the pivot reaches the tip almost instantly. Still numerically solid.";
+  } else {
+    html = "Past this point, tiny floating-point rounding differences get amplified every single step by the same sensitivity that makes chaos chaos. Within a few seconds, this simulation and the mathematically \"true\" trajectory share nothing but a starting point. It's still a real solution to real equations \u2014 just not a forecast of one specific system anymore.<span class='dim'>40 links is the hard ceiling here. Frame rate may also dip on slower devices.</span>";
+  }
+  nNote.innerHTML = html;
+  nNote.classList.toggle("warn", n > 15);
+}
+
+/* ============================================================
+   CANVAS / RENDERING
+   ============================================================ */
+const stageWrap = document.getElementById("stageWrap");
+const stageCanvas = document.getElementById("stageCanvas");
+const trailCanvas = document.getElementById("trailCanvas");
+const sctx = stageCanvas.getContext("2d");
+const tctx = trailCanvas.getContext("2d");
+
+const phaseCanvas = document.getElementById("phaseCanvas");
+const pctx = phaseCanvas.getContext("2d");
+const energyCanvas = document.getElementById("energyCanvas");
+const ectx = energyCanvas.getContext("2d");
+
+let dpr = Math.max(1, window.devicePixelRatio || 1);
+let cssW = 0, cssH = 0;
+let pivotX = 0, pivotY = 0;
+
+let prevTipX = null, prevTipY = null, prevTipXG = null, prevTipYG = null;
+
+function clearTrails(){
+  prevTipX = prevTipY = prevTipXG = prevTipYG = null;
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  tctx.clearRect(0, 0, cssW, cssH);
+}
+
+function resizeStage(){
+  const rect = stageWrap.getBoundingClientRect();
+  cssW = rect.width; cssH = rect.height;
+  dpr = Math.max(1, window.devicePixelRatio || 1);
+  [stageCanvas, trailCanvas].forEach(c => {
+    c.width = Math.round(cssW * dpr);
+    c.height = Math.round(cssH * dpr);
+  });
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pivotX = cssW / 2;
+  pivotY = cssH * 0.14;
+  const availableRadius = Math.min(cssW * 0.44, cssH * 0.80);
+  scale = totalLength > 0 ? availableRadius / totalLength : 100;
+  clearTrails();
+}
+
+function bobRadius(){
+  return Math.max(3.2, 12 - n * 0.22);
+}
+
+function drawMount(){
+  sctx.save();
+  sctx.translate(pivotX, pivotY);
+  const grad = sctx.createLinearGradient(-40, 0, 40, 0);
+  grad.addColorStop(0, "rgba(201,154,74,0.05)");
+  grad.addColorStop(0.5, "rgba(201,154,74,0.55)");
+  grad.addColorStop(1, "rgba(201,154,74,0.05)");
+  sctx.fillStyle = grad;
+  sctx.fillRect(-46, -4, 92, 6);
+  sctx.beginPath();
+  sctx.arc(0, 0, 5.5, 0, Math.PI * 2);
+  sctx.fillStyle = "#f2d98c";
+  sctx.shadowColor = "#c99a4a";
+  sctx.shadowBlur = 10;
+  sctx.fill();
+  sctx.restore();
+}
+
+function drawChain(th, xArr, yArr, opts){
+  const r = bobRadius();
+  sctx.save();
+  sctx.translate(pivotX, pivotY);
+
+  // rods
+  sctx.beginPath();
+  sctx.moveTo(0, 0);
+  for (let i = 0; i < n; i++) sctx.lineTo(xArr[i] * scale, yArr[i] * scale);
+  sctx.strokeStyle = opts.rodColor;
+  sctx.globalAlpha = opts.alpha;
+  sctx.lineWidth = opts.ghost ? 1.4 : Math.max(1.4, 2.6 - n * 0.03);
+  sctx.lineJoin = "round";
+  sctx.stroke();
+
+  // joints + bobs
+  for (let i = 0; i < n; i++){
+    const cx = xArr[i] * scale, cy = yArr[i] * scale;
+    const tcol = i / Math.max(1, n - 1);
+    sctx.beginPath();
+    sctx.arc(cx, cy, opts.ghost ? r * 0.62 : r, 0, Math.PI * 2);
+    if (opts.ghost){
+      sctx.fillStyle = opts.rodColor;
+      sctx.globalAlpha = opts.alpha * 0.9;
+      sctx.fill();
+    } else {
+      const g = sctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.15, cx, cy, r * 1.15);
+      const c1 = mixColor("#f2d98c", "#c99a4a", tcol);
+      g.addColorStop(0, "#fff6df");
+      g.addColorStop(0.45, c1);
+      g.addColorStop(1, "#8a6326");
+      sctx.fillStyle = g;
+      sctx.globalAlpha = 1;
+      sctx.shadowColor = "rgba(242,217,140,0.55)";
+      sctx.shadowBlur = 10;
+      sctx.fill();
+      sctx.shadowBlur = 0;
+    }
+  }
+  sctx.restore();
+  sctx.globalAlpha = 1;
+}
+
+function mixColor(a, b, t){
+  const pa = hexToRgb(a), pb = hexToRgb(b);
+  const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
+  const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
+  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+function hexToRgb(hex){
+  const v = parseInt(hex.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+
+function updateTrail(){
+  // phosphor fade
+  tctx.fillStyle = "rgba(11,15,26,0.09)";
+  tctx.fillRect(0, 0, cssW, cssH);
+
+  if (!showTrail) { prevTipX = prevTipY = prevTipXG = prevTipYG = null; return; }
+
+  const tipX = pivotX + px[n - 1] * scale;
+  const tipY = pivotY + py[n - 1] * scale;
+  if (prevTipX !== null){
+    tctx.beginPath();
+    tctx.moveTo(prevTipX, prevTipY);
+    tctx.lineTo(tipX, tipY);
+    tctx.strokeStyle = "#5fd8d6";
+    tctx.shadowColor = "#5fd8d6";
+    tctx.shadowBlur = 6;
+    tctx.lineWidth = 1.6;
+    tctx.lineCap = "round";
+    tctx.stroke();
+    tctx.shadowBlur = 0;
+  }
+  prevTipX = tipX; prevTipY = tipY;
+
+  if (showGhost){
+    const tipXG = pivotX + pxG[n - 1] * scale;
+    const tipYG = pivotY + pyG[n - 1] * scale;
+    if (prevTipXG !== null){
+      tctx.beginPath();
+      tctx.moveTo(prevTipXG, prevTipYG);
+      tctx.lineTo(tipXG, tipYG);
+      tctx.strokeStyle = "#a58ed6";
+      tctx.shadowColor = "#a58ed6";
+      tctx.shadowBlur = 5;
+      tctx.lineWidth = 1.1;
+      tctx.stroke();
+      tctx.shadowBlur = 0;
+    }
+    prevTipXG = tipXG; prevTipYG = tipYG;
+  }
+}
+
+function render(){
+  sctx.clearRect(0, 0, cssW, cssH);
+  computePositionsMeters(theta, px, py);
+  if (showGhost) computePositionsMeters(thetaG, pxG, pyG);
+
+  updateTrail();
+  drawMount();
+
+  if (showGhost){
+    drawChain(thetaG, pxG, pyG, { rodColor: "#a58ed6", alpha: 0.55, ghost: true });
+  }
+  drawChain(theta, px, py, { rodColor: "#c99a4a", alpha: 0.85, ghost: false });
+
+  drawPhasePortrait();
+  drawEnergyHistory();
+  updateReadouts();
+}
+
+/* ---------- mini scopes ---------- */
+function wrapAngle(a){
+  a = a % (2 * Math.PI);
+  if (a > Math.PI) a -= 2 * Math.PI;
+  if (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+
+function drawPhasePortrait(){
+  const w = phaseCanvas.width, h = phaseCanvas.height;
+  pctx.fillStyle = "rgba(6,10,18,0.14)";
+  pctx.fillRect(0, 0, w, h);
+  const x = w / 2 + wrapAngle(theta[0]) / Math.PI * (w / 2 - 6);
+  const y = h / 2 - Math.max(-1, Math.min(1, omega[0] / 8)) * (h / 2 - 6);
+  pctx.beginPath();
+  pctx.arc(x, y, 1.6, 0, Math.PI * 2);
+  pctx.fillStyle = "#5fd8d6";
+  pctx.shadowColor = "#5fd8d6";
+  pctx.shadowBlur = 4;
+  pctx.fill();
+  pctx.shadowBlur = 0;
+  // axes
+  pctx.strokeStyle = "rgba(139,147,168,0.25)";
+  pctx.lineWidth = 1;
+  pctx.beginPath();
+  pctx.moveTo(w / 2, 0); pctx.lineTo(w / 2, h);
+  pctx.moveTo(0, h / 2); pctx.lineTo(w, h / 2);
+  pctx.stroke();
+}
+
+const energyHistory = [];
+let baselineEnergy = 0;
+const ENERGY_HISTORY_MAX = 240;
+
+function pushEnergyHistory(E){
+  energyHistory.push(E);
+  if (energyHistory.length > ENERGY_HISTORY_MAX) energyHistory.shift();
+}
+
+function drawEnergyHistory(){
+  const w = energyCanvas.width, h = energyCanvas.height;
+  ectx.fillStyle = "#060a12";
+  ectx.fillRect(0, 0, w, h);
+  if (energyHistory.length < 2) return;
+  let min = Infinity, max = -Infinity;
+  for (const e of energyHistory){ if (e < min) min = e; if (e > max) max = e; }
+  if (max - min < 1e-6) { min -= 0.5; max += 0.5; }
+  ectx.beginPath();
+  for (let i = 0; i < energyHistory.length; i++){
+    const xx = (i / (ENERGY_HISTORY_MAX - 1)) * w;
+    const yy = h - ((energyHistory[i] - min) / (max - min)) * (h - 8) - 4;
+    if (i === 0) ectx.moveTo(xx, yy); else ectx.lineTo(xx, yy);
+  }
+  ectx.strokeStyle = "#f2d98c";
+  ectx.lineWidth = 1.4;
+  ectx.stroke();
+  ectx.strokeStyle = "rgba(139,147,168,0.25)";
+  ectx.beginPath();
+  ectx.moveTo(0, h / 2); ectx.lineTo(w, h / 2);
+  ectx.stroke();
+}
+
+function updateReadouts(){
+  const e = computeEnergy(theta, omega);
+  keReadout.textContent = e.KE.toFixed(2) + " J";
+  peReadout.textContent = e.PE.toFixed(2) + " J";
+  eReadout.textContent = e.E.toFixed(2) + " J";
+  const drift = baselineEnergy !== 0 ? ((e.E - baselineEnergy) / Math.abs(baselineEnergy)) * 100 : 0;
+  driftReadout.textContent = (drift >= 0 ? "+" : "") + drift.toFixed(2) + "%";
+  pushEnergyHistory(e.E);
+
+  if (showGhost){
+    divRow.style.display = "flex";
+    let dsum = 0;
+    for (let i = 0; i < n; i++){
+      const d = wrapAngle(theta[i] - thetaG[i]);
+      dsum += d * d;
+    }
+    divReadout.textContent = Math.sqrt(dsum).toFixed(4);
+  } else {
+    divRow.style.display = "none";
+  }
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+const BASE_H = 1 / 1000;
+const MAX_SUBSTEPS = 60;
+let lastT = null;
+
+function effectiveH(){
+  // relax accuracy gracefully for very long chains to keep frame rate sane
+  if (n <= 20) return BASE_H;
+  return BASE_H * (1 + (n - 20) * 0.08);
+}
+
+function tick(t){
+  if (lastT === null) lastT = t;
+  let dt = (t - lastT) / 1000;
+  lastT = t;
+  dt = Math.min(dt, 0.05);
+
+  if (isPlaying && !dragging){
+    const h = effectiveH();
+    let steps = Math.round((dt * SPEED) / h);
+    steps = Math.max(0, Math.min(steps, MAX_SUBSTEPS));
+    for (let s = 0; s < steps; s++){
+      rk4Step(theta, omega, h);
+      if (showGhost) rk4Step(thetaG, omegaG, h);
+    }
+  }
+  render();
+  requestAnimationFrame(tick);
+}
+
+/* ============================================================
+   DRAG-TO-POSE
+   ============================================================ */
+let dragging = false;
+let dragIndex = -1;
+
+function getCanvasPoint(evt){
+  const rect = stageCanvas.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function findNearestBob(pt){
+  let best = -1, bestD = 26;
+  for (let i = 0; i < n; i++){
+    const cx = pivotX + px[i] * scale;
+    const cy = pivotY + py[i] * scale;
+    const d = Math.hypot(pt.x - cx, pt.y - cy);
+    if (d < bestD){ bestD = d; best = i; }
+  }
+  return best;
+}
+
+stageCanvas.addEventListener("pointerdown", (evt) => {
+  const pt = getCanvasPoint(evt);
+  const idx = findNearestBob(pt);
+  if (idx >= 0){
+    dragging = true;
+    dragIndex = idx;
+    isPlaying = false;
+    updatePlayButton();
+    stageCanvas.setPointerCapture(evt.pointerId);
+  }
+});
+stageCanvas.addEventListener("pointermove", (evt) => {
+  if (!dragging) return;
+  const pt = getCanvasPoint(evt);
+  const prevX = dragIndex === 0 ? 0 : px[dragIndex - 1] * scale;
+  const prevY = dragIndex === 0 ? 0 : py[dragIndex - 1] * scale;
+  const dx = (pt.x - pivotX) - prevX;
+  const dy = (pt.y - pivotY) - prevY;
+  theta[dragIndex] = Math.atan2(dx, dy);
+  omega[dragIndex] = 0;
+  thetaG[dragIndex] = theta[dragIndex] + (dragIndex === 0 ? GHOST_EPS : 0);
+  omegaG[dragIndex] = 0;
+  computePositionsMeters(theta, px, py);
+  if (showGhost) computePositionsMeters(thetaG, pxG, pyG);
+});
+function endDrag(){
+  if (!dragging) return;
+  dragging = false;
+  dragIndex = -1;
+  energyHistory.length = 0;
+  baselineEnergy = computeEnergy(theta, omega).E;
+  clearTrails();
+}
+stageCanvas.addEventListener("pointerup", endDrag);
+stageCanvas.addEventListener("pointercancel", endDrag);
+stageCanvas.addEventListener("pointerleave", () => { if (dragging) { /* keep dragging until pointerup for touch */ } });
+
+function updateDragHint(){
+  dragHint.textContent = isPlaying ? "" : "click + drag a bob to pose it";
+}
+
+/* ============================================================
+   CONTROL WIRING
+   ============================================================ */
+function updatePlayButton(){
+  if (isPlaying){
+    playLabel.textContent = "Pause";
+    playIcon.innerHTML = '<rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/>';
+  } else {
+    playLabel.textContent = "Play";
+    playIcon.innerHTML = '<path d="M6 4l14 8-14 8V4z"/>';
+  }
+  updateDragHint();
+}
+
+nSlider.addEventListener("input", () => {
+  n = parseInt(nSlider.value, 10);
+  rebuildSystem();
+});
+
+lenPatternSel.addEventListener("change", () => { lenPattern = lenPatternSel.value; rebuildSystem(); });
+massPatternSel.addEventListener("change", () => { massPattern = massPatternSel.value; rebuildSystem(); });
+
+baseLenSlider.addEventListener("input", () => {
+  baseLen = parseFloat(baseLenSlider.value);
+  baseLenValue.textContent = baseLen.toFixed(2) + " m";
+  rebuildSystem();
+});
+baseMassSlider.addEventListener("input", () => {
+  baseMass = parseFloat(baseMassSlider.value);
+  baseMassValue.textContent = baseMass.toFixed(1) + " kg";
+  rebuildSystem();
+});
+
+gravityPreset.addEventListener("change", () => {
+  if (gravityPreset.value !== "custom"){
+    G = parseFloat(gravityPreset.value);
+    gravitySlider.value = G;
+    gravityValue.textContent = G.toFixed(2) + " m/s\u00B2";
+  }
+});
+gravitySlider.addEventListener("input", () => {
+  G = parseFloat(gravitySlider.value);
+  gravityValue.textContent = G.toFixed(2) + " m/s\u00B2";
+  gravityPreset.value = "custom";
+  baselineEnergy = computeEnergy(theta, omega).E;
+  energyHistory.length = 0;
+});
+
+dampingSlider.addEventListener("input", () => {
+  DAMPING = parseFloat(dampingSlider.value);
+  dampingValue.textContent = DAMPING.toFixed(2);
+});
+speedSlider.addEventListener("input", () => {
+  SPEED = parseFloat(speedSlider.value);
+  speedValue.textContent = SPEED.toFixed(2) + "\u00D7";
+});
+
+baseAngleSlider.addEventListener("input", () => {
+  baseAngleDeg = parseFloat(baseAngleSlider.value);
+  baseAngleValue.textContent = baseAngleDeg + "\u00B0";
+  document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+  applyInitialPose();
+});
+spreadSlider.addEventListener("input", () => {
+  spreadDeg = parseFloat(spreadSlider.value);
+  spreadValue.textContent = spreadDeg + "\u00B0";
+  document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+  applyInitialPose();
+});
+
+document.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => setPreset(chip.dataset.preset));
+});
+
+trailToggle.addEventListener("click", () => {
+  showTrail = !showTrail;
+  trailToggle.classList.toggle("on", showTrail);
+});
+ghostToggle.addEventListener("click", () => {
+  showGhost = !showGhost;
+  ghostToggle.classList.toggle("on", showGhost);
+  if (showGhost){ for (let i = 0; i < n; i++){ thetaG[i] = theta[i]; omegaG[i] = omega[i]; } thetaG[0] += GHOST_EPS; }
+});
+
+playPauseBtn.addEventListener("click", () => {
+  isPlaying = !isPlaying;
+  if (isPlaying) lastT = null;
+  updatePlayButton();
+});
+resetBtn.addEventListener("click", () => {
+  applyInitialPose();
+  isPlaying = false;
+  updatePlayButton();
+});
+stepBtn.addEventListener("click", () => {
+  if (isPlaying) return;
+  const h = effectiveH();
+  rk4Step(theta, omega, h);
+  if (showGhost) rk4Step(thetaG, omegaG, h);
+});
+
+window.addEventListener("resize", resizeStage);
+if (window.ResizeObserver){
+  new ResizeObserver(resizeStage).observe(stageWrap);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+setPreset("fan");
+rebuildSystem();
+updatePlayButton();
+requestAnimationFrame(tick);
+
+})();
+</script>
+</body>
+</html>
